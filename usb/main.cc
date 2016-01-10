@@ -8,10 +8,10 @@ const int ERR_FAILED_GET_DEVICE_LIST = -1;
 const int ERR_FIND_NO_MATCHED_DEV = -2;
 
 // FindFirstMatchedProduct finds the first found USB device whose
-// product name contains product_subs and returns 0.  It returns a
-// negative number for errors.
+// product name contains subs and returns 0.  It returns a negative
+// number for errors.
 int FindFirstMatchedProduct(libusb_context *ctx,
-			    const char* product_subs,
+			    const char* subs,
 			    libusb_device** found) {
   libusb_device **list;	  
   int num_devs = libusb_get_device_list(ctx, &list);
@@ -28,7 +28,11 @@ int FindFirstMatchedProduct(libusb_context *ctx,
 		       desc.idVendor,
 		       desc.idProduct);
 
-    if (strstr(product, product_subs) != NULL) {
+    char vendor[128];
+    get_vendor_string(vendor, sizeof(vendor),
+		      desc.idVendor);
+    
+    if (strstr(product, subs) != NULL or strstr(vendor, subs) != NULL) {
       *found = list[i];
       return 0;
     }
@@ -37,6 +41,10 @@ int FindFirstMatchedProduct(libusb_context *ctx,
 }
 
 int main() {
+  if (names_init() < 0) {
+    return -1;
+  }
+  
   libusb_context *ctx = NULL;
   int r = libusb_init(&ctx);
   if (r < 0) {
@@ -44,10 +52,19 @@ int main() {
     return -1;
   }
 
-  libusb_device* arduino;
-  FindFirstMatchedProduct(ctx, "Arduino", &arduino);
+  libusb_device* arduino = NULL;
+  r = FindFirstMatchedProduct(ctx, "Arduino", &arduino);
+  if (r != 0) {
+      printf("Not found: %d\n", r);
+  }
 
+  if (arduino != NULL) {
+    printf("Found it!\n");
+  }
+  
   libusb_exit(ctx);
+  names_exit();
+  
   return 0;
 }
 
