@@ -4,10 +4,13 @@ import (
 	"net/rpc"
 	"time"
 
+	"github.com/wangkuiyi/speedo"
+
 	"golang.org/x/mobile/app"
 	"golang.org/x/mobile/event/lifecycle"
 	"golang.org/x/mobile/event/paint"
 	"golang.org/x/mobile/event/size"
+	"golang.org/x/mobile/event/touch"
 	"golang.org/x/mobile/gl"
 )
 
@@ -25,7 +28,8 @@ func main() {
 
 	app.Main(func(a app.App) {
 		var glctx gl.Context
-		sz := size.Event{}
+		var width, height float32
+		ops := make(map[touch.Sequence]touch.Event)
 		for {
 			select {
 			case client = <-connected:
@@ -36,12 +40,27 @@ func main() {
 				case lifecycle.Event:
 					glctx, _ = e.DrawContext.(gl.Context)
 				case size.Event:
-					sz = e
+					// width, height = maxMin(e.WidthPx, e.HeightPx)
+					width, height = float32(e.WidthPx), float32(e.HeightPx)
+				case touch.Event:
+					if client != nil {
+						switch e.Type {
+						case touch.TypeBegin:
+							ops[e.Sequence] = e
+						case touch.TypeMove, touch.TypeEnd:
+							op, arg := OpArg(ops, e, width, height)
+							var dumb int
+							if e := client.Call("Speedo."+op, arg, &dumb); e != nil {
+								client.Close()
+								client = nil
+							}
+						}
+					}
 				case paint.Event:
 					if glctx == nil {
 						continue
 					}
-					onDraw(glctx, sz)
+					onDraw(glctx)
 					a.Publish()
 				}
 			}
@@ -60,11 +79,34 @@ func connectToServer() {
 	}
 }
 
-func onDraw(glctx gl.Context, sz size.Event) {
+func onDraw(glctx gl.Context) {
 	if client == nil {
 		glctx.ClearColor(1, 0, 0, 1)
 	} else {
 		glctx.ClearColor(0, 1, 0, 1)
 	}
 	glctx.Clear(gl.COLOR_BUFFER_BIT)
+}
+
+func OpArg(ops map[touch.Sequence]touch.Event, e touch.Event, width, height float32) (op string, arg speedo.Arg) {
+	begin := ops[e.Sequence]
+
+	if begin.X < width/2 {
+		op = "Accelerate"
+	} else {
+		op = "Turn"
+	}
+
+	arg.X, arg.Y, arg.X0, arg.Y0 = e.X, e.Y, begin.X, begin.Y
+	arg.Width, arg.Height = width, height
+	arg.Stop = e.Type == touch.TypeEnd
+	return
+}
+
+func maxMin(x, y int) (float32, float32) {
+	if x >= y {
+		return float32(x), float32(y)
+	} else {
+		return float32(y), float32(x)
+	}
 }

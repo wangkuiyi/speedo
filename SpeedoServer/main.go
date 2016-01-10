@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 	"net/rpc"
+
+	"github.com/wangkuiyi/speedo"
 )
 
 func main() {
@@ -15,3 +17,13 @@ func main() {
 }
 
 type Speedo struct{}
+
+func (speedo *Speedo) Accelerate(arg speedo.Arg, _ *int) error {
+	log.Printf("Speedo.Accelerate %+v", arg)
+	return nil
+}
+
+func (speedo *Speedo) Turn(arg speedo.Arg, _ *int) error {
+	log.Printf("Speedo.Turn %+v", arg)
+	return nil
+}
