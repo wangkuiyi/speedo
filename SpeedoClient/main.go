@@ -4,8 +4,6 @@ import (
 	"net/rpc"
 	"time"
 
-	"github.com/wangkuiyi/speedo"
-
 	"golang.org/x/mobile/app"
 	"golang.org/x/mobile/event/lifecycle"
 	"golang.org/x/mobile/event/paint"
@@ -40,7 +38,6 @@ func main() {
 				case lifecycle.Event:
 					glctx, _ = e.DrawContext.(gl.Context)
 				case size.Event:
-					// width, height = maxMin(e.WidthPx, e.HeightPx)
 					width, height = float32(e.WidthPx), float32(e.HeightPx)
 				case touch.Event:
 					if client != nil {
@@ -88,18 +85,16 @@ func onDraw(glctx gl.Context) {
 	glctx.Clear(gl.COLOR_BUFFER_BIT)
 }
 
-func OpArg(ops map[touch.Sequence]touch.Event, e touch.Event, width, height float32) (op string, arg speedo.Arg) {
+func OpArg(ops map[touch.Sequence]touch.Event, e touch.Event, width, height float32) (op string, arg float32) {
 	begin := ops[e.Sequence]
 
-	if begin.X < width/2 {
+	if begin.Y > height/2 {
 		op = "Accelerate"
+		arg = (begin.X - e.X) / width
 	} else {
 		op = "Turn"
+		arg = (begin.Y - e.Y) / height / 2.0
 	}
-
-	arg.X, arg.Y, arg.X0, arg.Y0 = e.X, e.Y, begin.X, begin.Y
-	arg.Width, arg.Height = width, height
-	arg.Stop = e.Type == touch.TypeEnd
 	return
 }
 
